@@ -1,15 +1,16 @@
-name: Build Python 3.14 wheel
+name: Build Python 3.14 wheel from upstream
 
-on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
+on: [push, workflow_dispatch]
 
 jobs:
   build-wheel:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Клонировать оригинальный fastText
+        uses: actions/checkout@v4
+        with:
+          repository: facebookresearch/fastText
+          path: fasttext-src
 
       - uses: actions/setup-python@v5
         with:
@@ -24,22 +25,15 @@ jobs:
       - name: Python‑зависимости
         run: |
           pip install --upgrade pip setuptools wheel
-          pip install cython>=3.0.8   # самая свежая стабильная (или >=3.1 если есть)
-
-      - name: Диагностика – список файлов
-        run: |
-          echo "=== Корень репозитория ==="
-          ls -la
-          echo "=== Содержимое python/ ==="
-          ls -la python || echo "ОШИБКА: папка python не найдена!"
+          pip install cython>=3.0.8
 
       - name: Сборка колеса
         run: |
-          cd python
+          cd fasttext-src/python
           pip wheel --wheel-dir=dist --no-build-isolation --no-deps .
 
       - name: Загрузить артефакт
         uses: actions/upload-artifact@v4
         with:
           name: fasttext-wheel-py314
-          path: python/dist/*.whl
+          path: fasttext-src/python/dist/*.whl
