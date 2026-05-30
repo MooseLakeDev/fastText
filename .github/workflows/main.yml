@@ -1,14 +1,13 @@
-name: Build Python 3.14 wheel for Windows
+name: Build Python 3.14 wheel for fastText (Windows)
 
 on:
+  push:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
-  build-wheel-windows:
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: bash
+  build-wheel:
+    runs-on: windows-latest  # Переключаемся на Windows
 
     steps:
       - name: Клонировать оригинальный fastText
@@ -17,46 +16,26 @@ jobs:
           repository: facebookresearch/fastText
           path: fasttext-src
 
-      - uses: actions/setup-python@v5
+      - name: Настройка Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.14'
 
-      - name: Установка Python-зависимостей
+      - name: Установка зависимостей сборки
         run: |
-          pip install --upgrade pip setuptools wheel
-          pip install cython>=3.0.8 pybind11
+          python -m pip install --upgrade pip setuptools wheel build
+          python -m pip install "cython>=3.0.8" pybind11
 
-      - name: Пропатчить setup.py для совместимости с MSVC
+      - name: Сборка колеса (Windows)
+        shell: bash  # Используем bash для удобства навигации по папкам
         run: |
           cd fasttext-src
-          python << 'EOF'
-          import re
-          with open('setup.py', 'r') as f:
-              content = f.read()
-          # Меняем стандарт C++ на нужный MSVC
-          content = content.replace("'-std=c++17'", "'/std:c++17'")
-          # Убираем флаг скрытой видимости
-          content = content.replace(", '-fvisibility=hidden'", '')
-          # Добавляем определение ssize_t (ptrdiff_t) для MSVC
-          content = re.sub(
-              r"(\['-DVERSION_INFO=.+?', '/std:c\+\+17')",
-              r"\1, '-Dssize_t=ptrdiff_t'",
-              content
-          )
-          with open('setup.py', 'w') as f:
-              f.write(content)
-          print('setup.py patched successfully')
-          EOF
-
-      - name: Сборка колеса
-        run: |
-          cd fasttext-src
-          python setup.py bdist_wheel
-          echo "Содержимое dist/:"
+          # Используем современный модуль build вместо setup.py bdist_wheel
+          python -m build --wheel
           ls -la dist/
 
-      - name: Загрузить артефакт (Windows wheel)
+      - name: Загрузить артефакт (колесо)
         uses: actions/upload-artifact@v4
         with:
-          name: fasttext-wheel-py314-win
+          name: fasttext-windows-wheel-py314
           path: fasttext-src/dist/*.whl
