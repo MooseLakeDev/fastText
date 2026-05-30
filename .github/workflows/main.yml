@@ -1,4 +1,4 @@
-name: Build Python 3.14 wheel for fastText (Windows Fixed)
+name: Build Python 3.14 wheel for fastText (Windows Clean)
 
 on:
   push:
@@ -10,10 +10,11 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Клонировать оригинальный fastText
+      - name: Клонировать репозиторий fastText
         uses: actions/checkout@v4
         with:
-          repository: facebookresearch/fastText
+          # Укажите здесь свой форк, куда залили обновленный setup.py
+          repository: ВАШ_НИК_НА_GITHUB/fastText 
           path: fasttext-src
 
       - name: Настройка Python
@@ -24,28 +25,7 @@ jobs:
       - name: Установка зависимостей сборки
         run: |
           python -m pip install --upgrade pip setuptools wheel build
-          python -m pip install "cython>=3.0.8" pybind11
-
-      - name: Патч исходного кода под Windows (MSVC)
-        shell: powershell
-        run: |
-          cd fasttext-src
-          
-          # 1. Форсируем стандарт C++17 для компилятора MSVC в setup.py
-          $setupFile = "setup.py"
-          $setupContent = Get-Content $setupFile -Raw
-          # Добавляем флаг /std:c++17 для Windows-компилятора
-          $setupContent = $setupContent.Replace("extra_compile_args=[]", "extra_compile_args=['/std:c++17']" )
-          Set-Content $setupFile $setupContent
-          
-          # 2. Лечим отсутствие ssize_t в Windows (добавляем дефайн в начало файла pybind)
-          $pybindFile = "python/fasttext_module/fasttext/pybind/fasttext_pybind.cc"
-          $pybindContent = Get-Content $pybindFile -Raw
-          $ssizePatch = "#if defined(_MSC_VER)\n#include <BaseTsd.h>\ntypedef SSIZE_T ssize_t;\n#endif\n"
-          $pybindContent = $ssizePatch + $pybindContent
-          Set-Content $pybindFile $pybindContent
-          
-          Write-Host "Патчи успешно применены!"
+          python -m pip install "cython>=3.0.8" pybind11 numpy
 
       - name: Сборка колеса (Windows)
         shell: bash
