@@ -3,35 +3,42 @@ name: Build Python 3.14 wheel
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:   # позволяет запустить вручную из вкладки Actions
+  workflow_dispatch:
 
 jobs:
   build-wheel:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout репозитория
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Установка Python 3.14
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
-          python-version: '3.14'       # для альфа/бета версий попробуйте '3.14-dev'
+          python-version: '3.14'
           architecture: 'x64'
 
-      - name: Установка системных зависимостей
+      - name: Системные зависимости
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential python3-dev
 
-      - name: Установка Python‑зависимостей для сборки
-        run: pip install --upgrade pip setuptools wheel cython
-
-      - name: Сборка колеса из исходников fastText (Python)
+      - name: Python‑зависимости
         run: |
-          cd python          # папка с setup.py внутри репозитория fastText
-          python setup.py bdist_wheel
+          pip install --upgrade pip setuptools wheel
+          pip install cython>=3.0.8   # самая свежая стабильная (или >=3.1 если есть)
 
-      - name: Загрузка артефакта (колеса)
+      - name: Диагностика – список файлов
+        run: |
+          echo "=== Корень репозитория ==="
+          ls -la
+          echo "=== Содержимое python/ ==="
+          ls -la python || echo "ОШИБКА: папка python не найдена!"
+
+      - name: Сборка колеса
+        run: |
+          cd python
+          pip wheel --wheel-dir=dist --no-build-isolation --no-deps .
+
+      - name: Загрузить артефакт
         uses: actions/upload-artifact@v4
         with:
           name: fasttext-wheel-py314
