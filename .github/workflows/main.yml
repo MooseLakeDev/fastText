@@ -27,13 +27,12 @@ jobs:
       - name: Установка Python-зависимостей
         run: |
           pip install --upgrade pip setuptools wheel
-          pip install cython>=3.0.8
+          pip install cython>=3.0.8 pybind11
 
       - name: Сборка колеса
         run: |
           cd fasttext-src
           python setup.py bdist_wheel
-          # или альтернативный способ: pip wheel --wheel-dir=dist --no-build-isolation .
           ls -la dist/
 
       - name: Загрузить артефакт (колесо)
