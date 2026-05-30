@@ -24,15 +24,8 @@ import io
 __version__ = "0.9.2"
 FASTTEXT_SRC = "src"
 
-# Based on https://github.com/pybind/python_example
-
-
 class get_pybind_include:
-    """Helper class to determine the pybind11 include path
-
-    The purpose of this class is to postpone importing pybind11
-    until it is actually installed, so that the ``get_include()``
-    method can be invoked."""
+    """Helper class to determine the pybind11 include path"""
 
     def __init__(self, user=False):
         try:
@@ -45,9 +38,7 @@ class get_pybind_include:
 
     def __str__(self):
         import pybind11
-
         return pybind11.get_include(self.user)
-
 
 try:
     coverage_index = sys.argv.index("--coverage")
@@ -59,7 +50,6 @@ else:
 
 fasttext_src_files = map(str, os.listdir(FASTTEXT_SRC))
 fasttext_src_cc = list(filter(lambda x: x.endswith(".cc"), fasttext_src_files))
-
 fasttext_src_cc = list(
     map(lambda x: str(os.path.join(FASTTEXT_SRC, x)), fasttext_src_cc)
 )
@@ -72,54 +62,45 @@ ext_modules = [
         ]
         + fasttext_src_cc,
         include_dirs=[
-            # Path to pybind11 headers
             get_pybind_include(),
             get_pybind_include(user=True),
-            # Path to fasttext source code
             FASTTEXT_SRC,
         ],
         language="c++",
-        extra_compile_args=[
-            "-O0 -fno-inline -fprofile-arcs -pthread -march=native"
-            if coverage
-            else "-O3 -funroll-loops -pthread -march=native"
-        ],
+        # Оставляем пустые extra_compile_args, так как они полностью сформируются в BuildExt
+        extra_compile_args=[],
     ),
 ]
 
-
-# As of Python 3.6, CCompiler has a `has_flag` method.
-# cf http://bugs.python.org/issue26689
 def has_flag(compiler, flags):
-    """Return a boolean indicating whether a flag name is supported on
-    the specified compiler.
-    """
     import tempfile
-
-    with tempfile.NamedTemporaryFile("w", suffix=".cpp") as f:
+    with tempfile.NamedTemporaryFile("w", suffix=".cpp", delete=False) as f:
         f.write("int main (int argc, char **argv) { return 0; }")
+        f_name = f.name
+    try:
+        compiler.compile([f_name], extra_postargs=flags)
+    except Exception:
+        return False
+    finally:
         try:
-            compiler.compile([f.name], extra_postargs=flags)
-        except setuptools.distutils.errors.CompileError:
-            return False
+            os.remove(f_name)
+        except OSError:
+            pass
     return True
 
-
 def cpp_flag(compiler):
-    """Return the -std=c++17 compiler flag."""
     standards = ["-std=c++17"]
     for standard in standards:
         if has_flag(compiler, [standard]):
             return standard
-    raise RuntimeError("Unsupported compiler -- at least C++17 support " "is needed!")
-
+    raise RuntimeError("Unsupported compiler -- at least C++17 support is needed!")
 
 class BuildExt(build_ext):
     """A custom build extension for adding compiler-specific options."""
 
     c_opts = {
-        "msvc": ["/EHsc"],
-        "unix": [],
+        "msvc": ["/EHsc", "/O2", "/std:c++17", "/Dssize_t=intptr_t"],  # ПАТЧ ДЛЯ WINDOWS (C++17 + ssize_t)
+        "unix": ["-O3", "-funroll-loops", "-pthread", "-march=native"],
     }
 
     def build_extensions(self):
@@ -131,20 +112,15 @@ class BuildExt(build_ext):
                 self.c_opts["unix"] += [all_flags[0]]
             elif has_flag(self.compiler, all_flags):
                 self.c_opts["unix"] += all_flags
-            else:
-                raise RuntimeError(
-                    "libc++ is needed! Failed to compile with {} and {}.".format(
-                        " ".join(all_flags), all_flags[0]
-                    )
-                )
+
         ct = self.compiler.compiler_type
-        opts = self.c_opts.get(ct, [])
+        opts = list(self.c_opts.get(ct, []))
         extra_link_args = []
 
         if coverage:
-            coverage_option = "--coverage"
-            opts.append(coverage_option)
-            extra_link_args.append(coverage_option)
+            if ct == "unix":
+                opts.append("--coverage")
+                extra_link_args.append("--coverage")
 
         if ct == "unix":
             opts.append('-DVERSION_INFO="%s"' % self.distribution.get_version())
@@ -153,20 +129,18 @@ class BuildExt(build_ext):
                 opts.append("-fvisibility=hidden")
         elif ct == "msvc":
             opts.append('/DVERSION_INFO=\\"%s\\"' % self.distribution.get_version())
+
         for ext in self.extensions:
             ext.extra_compile_args = opts
             ext.extra_link_args = extra_link_args
         build_ext.build_extensions(self)
 
-
 def _get_readme():
-    """
-    Use pandoc to generate rst from md.
-    pandoc --from=markdown --to=rst --output=python/README.rst python/README.md
-    """
-    with io.open("python/README.rst", encoding="utf-8") as fid:
-        return fid.read()
-
+    try:
+        with io.open("python/README.rst", encoding="utf-8") as fid:
+            return fid.read()
+    except IOError:
+        return "fasttext Python bindings"
 
 setup(
     name="fasttext",
@@ -183,12 +157,7 @@ setup(
         "Intended Audience :: Developers",
         "Intended Audience :: Science/Research",
         "License :: OSI Approved :: MIT License",
-        "Programming Language :: Python :: 2.7",
-        "Programming Language :: Python :: 3.4",
-        "Programming Language :: Python :: 3.5",
-        "Programming Language :: Python :: 3.6",
-        "Topic :: Software Development",
-        "Topic :: Scientific/Engineering",
+        "Programming Language :: Python :: 3",
         "Operating System :: Microsoft :: Windows",
         "Operating System :: POSIX",
         "Operating System :: Unix",
