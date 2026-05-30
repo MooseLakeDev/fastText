@@ -1,13 +1,15 @@
-name: Build Python 3.14 wheel for fastText
+name: Build Python 3.14 wheel for Windows
 
 on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
+  workflow_dispatch:          # запуск только вручную (можно добавить push при желании)
 
 jobs:
-  build-wheel:
-    runs-on: ubuntu-latest
+  build-wheel-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash           # использовать bash, чтобы команды были кроссплатформенными
+
     steps:
       - name: Клонировать оригинальный fastText
         uses: actions/checkout@v4
@@ -19,11 +21,6 @@ jobs:
         with:
           python-version: '3.14'
 
-      - name: Установка системных зависимостей
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential python3-dev
-
       - name: Установка Python-зависимостей
         run: |
           pip install --upgrade pip setuptools wheel
@@ -33,10 +30,11 @@ jobs:
         run: |
           cd fasttext-src
           python setup.py bdist_wheel
+          echo "Содержимое dist/:"
           ls -la dist/
 
-      - name: Загрузить артефакт (колесо)
+      - name: Загрузить артефакт (Windows wheel)
         uses: actions/upload-artifact@v4
         with:
-          name: fasttext-wheel-py314
+          name: fasttext-wheel-py314-win
           path: fasttext-src/dist/*.whl
