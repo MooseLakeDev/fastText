@@ -1,0 +1,38 @@
+name: Build Python 3.14 wheel
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:   # позволяет запустить вручную из вкладки Actions
+
+jobs:
+  build-wheel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout репозитория
+        uses: actions/checkout@v4
+
+      - name: Установка Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'       # для альфа/бета версий попробуйте '3.14-dev'
+          architecture: 'x64'
+
+      - name: Установка системных зависимостей
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3-dev
+
+      - name: Установка Python‑зависимостей для сборки
+        run: pip install --upgrade pip setuptools wheel cython
+
+      - name: Сборка колеса из исходников fastText (Python)
+        run: |
+          cd python          # папка с setup.py внутри репозитория fastText
+          python setup.py bdist_wheel
+
+      - name: Загрузка артефакта (колеса)
+        uses: actions/upload-artifact@v4
+        with:
+          name: fasttext-wheel-py314
+          path: python/dist/*.whl
