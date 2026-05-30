@@ -1,14 +1,14 @@
 name: Build Python 3.14 wheel for Windows
 
 on:
-  workflow_dispatch:          # запуск только вручную (можно добавить push при желании)
+  workflow_dispatch:
 
 jobs:
   build-wheel-windows:
     runs-on: windows-latest
     defaults:
       run:
-        shell: bash           # использовать bash, чтобы команды были кроссплатформенными
+        shell: bash
 
     steps:
       - name: Клонировать оригинальный fastText
@@ -25,6 +25,28 @@ jobs:
         run: |
           pip install --upgrade pip setuptools wheel
           pip install cython>=3.0.8 pybind11
+
+      - name: Пропатчить setup.py для совместимости с MSVC
+        run: |
+          cd fasttext-src
+          python << 'EOF'
+          import re
+          with open('setup.py', 'r') as f:
+              content = f.read()
+          # Меняем стандарт C++ на нужный MSVC
+          content = content.replace("'-std=c++17'", "'/std:c++17'")
+          # Убираем флаг скрытой видимости
+          content = content.replace(", '-fvisibility=hidden'", '')
+          # Добавляем определение ssize_t (ptrdiff_t) для MSVC
+          content = re.sub(
+              r"(\['-DVERSION_INFO=.+?', '/std:c\+\+17')",
+              r"\1, '-Dssize_t=ptrdiff_t'",
+              content
+          )
+          with open('setup.py', 'w') as f:
+              f.write(content)
+          print('setup.py patched successfully')
+          EOF
 
       - name: Сборка колеса
         run: |
